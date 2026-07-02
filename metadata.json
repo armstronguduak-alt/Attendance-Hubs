@@ -1,0 +1,6 @@
+{
+  "name": "AttendanceHub",
+  "description": "A customizable full-stack attendance tracking platform where anyone can create forms, fill attendance, sign digitally, and export detailed reports.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

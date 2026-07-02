@@ -86,6 +86,10 @@ const app = express();
       if (!attendanceData) {
         return res.status(404).json({ error: "Attendance form not found." });
       }
+      // Block public access to draft forms
+      if (attendanceData.isDraft) {
+        return res.status(404).json({ error: "This attendance form is not yet published." });
+      }
       // Strip passwords from public responses unless checked elsewhere
       const { password, ...publicData } = attendanceData;
       res.json({ ...publicData, hasPassword: !!password });

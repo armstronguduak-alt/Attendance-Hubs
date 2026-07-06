@@ -29,7 +29,6 @@ export const attendance = pgTable('attendance', {
   password: text('password'),
   isPinned: boolean('is_pinned').default(false).notNull(),
   isArchived: boolean('is_archived').default(false).notNull(),
-  isDraft: boolean('is_draft').default(false).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 

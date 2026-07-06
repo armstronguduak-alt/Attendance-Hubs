@@ -13,7 +13,7 @@ import { useAuth, AuthProvider } from "./context/AuthContext.tsx";
 import { Attendance, AttendanceField, Submission, User } from "./types.ts";
 import { 
   Plus, Calendar, MapPin, Key, Trash2, RotateCcw, Pin, Archive, ExternalLink, 
-  Share2, Shield, Info, CheckCircle2, UserCheck, BarChart3, Clock, AlertCircle, Sparkles, Copy, Check, FileSpreadsheet, Save, Send
+  Share2, Shield, Info, CheckCircle2, UserCheck, BarChart3, Clock, AlertCircle, Sparkles, Copy, Check, FileSpreadsheet
 } from "lucide-react";
 
 function MainApp() {
@@ -66,9 +66,7 @@ function MainApp() {
   });
   const [formFields, setFormFields] = useState<AttendanceField[]>([]);
   const [isSavingForm, setIsSavingForm] = useState(false);
-  const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [editorId, setEditorId] = useState<string | null>(null); // null if new, string if editing
-  const [editorIsDraft, setEditorIsDraft] = useState(false); // track if form being edited is a draft
 
   // Dashboard state
   const [creatorAttendances, setCreatorAttendances] = useState<any[]>([]);
@@ -157,7 +155,6 @@ function MainApp() {
     } else if (path === "/create") {
       // Clear editor state for new form
       setEditorId(null);
-      setEditorIsDraft(false);
       setFormSettings({
         title: "",
         description: "",
@@ -344,29 +341,25 @@ function MainApp() {
     }
   };
 
-  // Save / Publish form (isDraft: true = save as draft, false = publish)
-  const handleSaveForm = async (e: React.FormEvent | null, isDraft: boolean = false) => {
-    if (e) e.preventDefault();
+  // Save / Publish form
+  const handlePublishForm = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (!formSettings.title.trim()) {
       showToast("Please provide a title for the attendance", "error");
       return;
     }
-    if (!isDraft && formFields.length === 0) {
+    if (formFields.length === 0) {
       showToast("Please add at least one form field to submit", "error");
       return;
     }
 
-    if (isDraft) {
-      setIsSavingDraft(true);
-    } else {
-      setIsSavingForm(true);
-    }
+    setIsSavingForm(true);
     try {
       const method = editorId ? "PUT" : "POST";
       const endpoint = editorId ? `/api/attendance/${editorId}` : "/api/attendance";
       
       const payload: any = {
-        settings: { ...formSettings, isDraft },
+        settings: formSettings,
         fields: formFields,
       };
 
@@ -385,11 +378,7 @@ function MainApp() {
 
       if (res.ok) {
         const savedForm = await res.json();
-        if (isDraft) {
-          showToast(editorId ? "Draft updated successfully!" : "Draft saved successfully!");
-        } else {
-          showToast(editorId ? "Attendance updated successfully!" : "Attendance published successfully!");
-        }
+        showToast(editorId ? "Attendance updated successfully!" : "Attendance published successfully!");
         
         if (editorId) {
           // Editing existing form
@@ -417,19 +406,12 @@ function MainApp() {
       showToast("An error occurred while saving.", "error");
     } finally {
       setIsSavingForm(false);
-      setIsSavingDraft(false);
     }
-  };
-
-  // Backwards-compatible form submit handler
-  const handlePublishForm = (e: React.FormEvent) => {
-    handleSaveForm(e, false);
   };
 
   // Edit action trigger (prepopulate editor)
   const handleStartEditForm = (form: any) => {
     setEditorId(form.id);
-    setEditorIsDraft(form.isDraft || false);
     setFormSettings({
       title: form.title,
       description: form.description || "",
@@ -803,22 +785,22 @@ function MainApp() {
         {/* ========================================================= */}
         {path === "/create" && (
           <form onSubmit={handlePublishForm} className="space-y-8 max-w-3xl mx-auto">
-            <div className="border-b border-slate-200 dark:border-slate-800 pb-5">
-              <div className="flex justify-between items-center">
-                <div>
-                  <h2 className="text-xl md:text-2xl font-extrabold text-slate-900 dark:text-slate-100">
-                    {editorId ? "Edit Attendance Form" : "Create Attendance Form"}
-                  </h2>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    {editorId ? "Modify fields and update setting constraints" : "Design your custom sheet template"}
-                  </p>
-                </div>
-                {editorIsDraft && editorId && (
-                  <span className="px-3 py-1 bg-amber-100 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 text-[10px] font-bold rounded-full border border-amber-200 dark:border-amber-900/30 uppercase tracking-wide">
-                    Draft
-                  </span>
-                )}
+            <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-800 pb-5">
+              <div>
+                <h2 className="text-xl md:text-2xl font-extrabold text-slate-900 dark:text-slate-100">
+                  {editorId ? "Edit Attendance Form" : "Create Attendance Form"}
+                </h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  {editorId ? "Modify fields and update setting constraints" : "Design your custom sheet template"}
+                </p>
               </div>
+              <button
+                type="submit"
+                disabled={isSavingForm}
+                className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition shadow-md disabled:opacity-40 cursor-pointer"
+              >
+                {isSavingForm ? "Publishing..." : editorId ? "Save Modifications" : "Publish Form Template"}
+              </button>
             </div>
 
             {/* Settings block */}
@@ -1012,46 +994,6 @@ function MainApp() {
                 </div>
               </div>
             )}
-
-            {/* Action Buttons — Save Draft & Publish */}
-            <div className="flex flex-col sm:flex-row gap-3 pt-2">
-              <button
-                type="button"
-                disabled={isSavingDraft || isSavingForm}
-                onClick={() => handleSaveForm(null, true)}
-                className="flex-1 py-3.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-sm font-semibold rounded-2xl transition shadow-xs hover:shadow-md disabled:opacity-40 cursor-pointer flex justify-center items-center gap-2 border border-slate-200 dark:border-slate-700"
-              >
-                {isSavingDraft ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-slate-500 border-t-transparent rounded-full animate-spin" />
-                    Saving Draft...
-                  </>
-                ) : (
-                  <>
-                    <Save size={16} />
-                    Save as Draft
-                  </>
-                )}
-              </button>
-
-              <button
-                type="submit"
-                disabled={isSavingForm || isSavingDraft}
-                className="flex-1 py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-2xl transition shadow-md hover:shadow-lg disabled:opacity-40 cursor-pointer flex justify-center items-center gap-2"
-              >
-                {isSavingForm ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    {editorId ? "Saving..." : "Publishing..."}
-                  </>
-                ) : (
-                  <>
-                    <Send size={16} />
-                    {editorId ? (editorIsDraft ? "Publish Form Template" : "Save Modifications") : "Publish Form Template"}
-                  </>
-                )}
-              </button>
-            </div>
           </form>
         )}
 
@@ -1155,11 +1097,6 @@ function MainApp() {
                             <div className="flex items-center gap-1.5 flex-wrap">
                               {item.isPinned && <Pin size={11} className="text-indigo-500" />}
                               {item.isArchived && <Archive size={11} className="text-amber-500" />}
-                              {item.isDraft && (
-                                <span className="px-1.5 py-0.5 bg-amber-100 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400 text-[9px] font-bold rounded-md uppercase tracking-wide border border-amber-200 dark:border-amber-900/30">
-                                  Draft
-                                </span>
-                              )}
                               <span className="font-bold text-xs text-slate-900 dark:text-slate-100 truncate block">
                                 {item.title}
                               </span>

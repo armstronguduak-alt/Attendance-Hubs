@@ -56,7 +56,6 @@ export async function createAttendance(
     requireConfirmation?: boolean;
     autoClose?: boolean;
     password?: string;
-    isDraft?: boolean;
   },
   fieldsList: Array<{
     label: string;
@@ -93,7 +92,6 @@ export async function createAttendance(
         password: data.password || null,
         isPinned: false,
         isArchived: false,
-        isDraft: data.isDraft ?? false,
       })
       .returning();
 
@@ -179,7 +177,6 @@ export async function updateAttendance(
     requireConfirmation?: boolean;
     autoClose?: boolean;
     password?: string;
-    isDraft?: boolean;
   },
   fieldsList: Array<{
     id?: number;
@@ -209,7 +206,6 @@ export async function updateAttendance(
         requireConfirmation: data.requireConfirmation ?? false,
         autoClose: data.autoClose ?? false,
         password: data.password || null,
-        isDraft: data.isDraft ?? false,
       })
       .where(eq(attendance.id, id))
       .returning();

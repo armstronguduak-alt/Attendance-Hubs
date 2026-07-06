@@ -1,9 +1,12 @@
 import { Request, Response, NextFunction } from 'express';
-import { adminAuth } from '../lib/firebase-admin.ts';
-import { DecodedIdToken } from 'firebase-admin/auth';
+import { supabase } from '../lib/supabase.ts';
 
 export interface AuthRequest extends Request {
-  user?: DecodedIdToken;
+  user?: {
+    uid: string;
+    email?: string;
+    name?: string;
+  };
 }
 
 export const requireAuth = async (
@@ -18,11 +21,20 @@ export const requireAuth = async (
 
   const token = authHeader.split('Bearer ')[1];
   try {
-    const decodedToken = await adminAuth.verifyIdToken(token);
-    req.user = decodedToken;
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+    if (error || !user) {
+      console.error('Error verifying Supabase token:', error);
+      return res.status(401).json({ error: 'Unauthorized: Invalid token' });
+    }
+    
+    req.user = {
+      uid: user.id,
+      email: user.email,
+      name: user.user_metadata?.display_name || user.user_metadata?.name || '',
+    };
     next();
   } catch (error) {
-    console.error('Error verifying Firebase ID token:', error);
+    console.error('Error verifying Supabase token:', error);
     return res.status(401).json({ error: 'Unauthorized: Invalid token' });
   }
 };
@@ -39,10 +51,17 @@ export const optionalAuth = async (
 
   const token = authHeader.split('Bearer ')[1];
   try {
-    const decodedToken = await adminAuth.verifyIdToken(token);
-    req.user = decodedToken;
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+    if (!error && user) {
+      req.user = {
+        uid: user.id,
+        email: user.email,
+        name: user.user_metadata?.display_name || user.user_metadata?.name || '',
+      };
+    }
   } catch (error) {
     // Treat invalid or expired token as guest
   }
   next();
 };
+

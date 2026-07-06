@@ -13,6 +13,10 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({ onSave, savedValue }
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [hasDrawn, setHasDrawn] = useState(false);
 
+  // Capture vector points for native drawing in PDFs
+  const strokesRef = useRef<{ x: number; y: number }[][]>([]);
+  const [strokesHistory, setStrokesHistory] = useState<{ x: number; y: number }[][][]>([]);
+
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -33,12 +37,24 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({ onSave, savedValue }
 
     // Load saved value if available
     if (savedValue) {
+      let imageUrl = savedValue;
+      if (savedValue.startsWith("{")) {
+        try {
+          const parsed = JSON.parse(savedValue);
+          imageUrl = parsed.image;
+          strokesRef.current = parsed.strokes || [];
+          setStrokesHistory([parsed.strokes || []]);
+        } catch (e) {
+          console.error("Failed to parse signature JSON, treating as legacy raw image", e);
+        }
+      }
+
       const img = new Image();
       img.onload = () => {
         ctx.drawImage(img, 0, 0, rect.width, 150);
         setHasDrawn(true);
       };
-      img.src = savedValue;
+      img.src = imageUrl;
     }
   }, [savedValue]);
 
@@ -46,9 +62,16 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({ onSave, savedValue }
     const canvas = canvasRef.current;
     if (!canvas) return;
     const dataUrl = canvas.toDataURL();
+    
     const newHistory = history.slice(0, historyIndex + 1);
     newHistory.push(dataUrl);
     setHistory(newHistory);
+    
+    const newStrokesHistory = strokesHistory.slice(0, historyIndex + 1);
+    const currentStrokesCopy = JSON.parse(JSON.stringify(strokesRef.current));
+    newStrokesHistory.push(currentStrokesCopy);
+    setStrokesHistory(newStrokesHistory);
+
     setHistoryIndex(newHistory.length - 1);
     setHasDrawn(true);
   };
@@ -85,6 +108,11 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({ onSave, savedValue }
     ctx.beginPath();
     ctx.moveTo(x, y);
     setIsDrawing(true);
+
+    // Append a new stroke starting with this point
+    const updatedStrokes = JSON.parse(JSON.stringify(strokesRef.current));
+    updatedStrokes.push([{ x, y }]);
+    strokesRef.current = updatedStrokes;
   };
 
   const draw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
@@ -100,6 +128,11 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({ onSave, savedValue }
     const { x, y } = getCoordinates(e);
     ctx.lineTo(x, y);
     ctx.stroke();
+
+    // Add point to the active stroke
+    if (strokesRef.current.length > 0) {
+      strokesRef.current[strokesRef.current.length - 1].push({ x, y });
+    }
   };
 
   const stopDrawing = () => {
@@ -108,7 +141,12 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({ onSave, savedValue }
       saveToHistory();
       const canvas = canvasRef.current;
       if (canvas) {
-        onSave(canvas.toDataURL());
+        // Save both PNG image and strokes JSON
+        const serialized = JSON.stringify({
+          image: canvas.toDataURL(),
+          strokes: strokesRef.current
+        });
+        onSave(serialized);
       }
     }
   };
@@ -124,6 +162,8 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({ onSave, savedValue }
     setHistory([]);
     setHistoryIndex(-1);
     setHasDrawn(false);
+    strokesRef.current = [];
+    setStrokesHistory([]);
     onSave("");
   };
 
@@ -148,7 +188,15 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({ onSave, savedValue }
     const img = new Image();
     img.onload = () => {
       ctx.drawImage(img, 0, 0, rect.width, 150);
-      onSave(history[newIndex]);
+      
+      const restoredStrokes = JSON.parse(JSON.stringify(strokesHistory[newIndex] || []));
+      strokesRef.current = restoredStrokes;
+
+      const serialized = JSON.stringify({
+        image: history[newIndex],
+        strokes: restoredStrokes
+      });
+      onSave(serialized);
     };
     img.src = history[newIndex];
   };
@@ -171,7 +219,15 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({ onSave, savedValue }
     const img = new Image();
     img.onload = () => {
       ctx.drawImage(img, 0, 0, rect.width, 150);
-      onSave(history[newIndex]);
+
+      const restoredStrokes = JSON.parse(JSON.stringify(strokesHistory[newIndex] || []));
+      strokesRef.current = restoredStrokes;
+
+      const serialized = JSON.stringify({
+        image: history[newIndex],
+        strokes: restoredStrokes
+      });
+      onSave(serialized);
     };
     img.src = history[newIndex];
   };

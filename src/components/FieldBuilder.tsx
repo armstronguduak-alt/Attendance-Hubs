@@ -113,90 +113,15 @@ export const FieldBuilder: React.FC<FieldBuilderProps> = ({ fields, onChange }) 
 
   return (
     <div className="space-y-6">
-      {/* Templates Selector */}
-      <div className="bg-slate-50 dark:bg-slate-950 p-5 border border-slate-200 dark:border-slate-800 rounded-2xl relative">
-        
-        {/* Animated Feedback overlay badge inside template selector */}
-        {feedback && (
-          <div className="absolute top-4 right-4 bg-indigo-600 text-white text-[11px] font-bold px-3 py-1.5 rounded-xl shadow-lg flex items-center gap-1.5 animate-pulse z-10 border border-indigo-500">
-            <CheckCircle2 size={12} className="text-white" />
-            <span>{feedback}</span>
-          </div>
-        )}
-
-        <h4 className="text-xs font-semibold text-slate-600 dark:text-slate-300 font-mono uppercase tracking-wider mb-3">
-          1. Add Form Fields
-        </h4>
-
-        {/* Built-in template buttons */}
-        <div className="mb-4">
-          <p className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 mb-2">BUILT-IN TEMPLATES</p>
-          <div className="flex flex-wrap gap-2">
-            {BUILT_IN_TEMPLATES.map((t, idx) => {
-              const added = isTemplateAdded(t);
-              return (
-                <button
-                  key={idx}
-                  type="button"
-                  onClick={() => toggleField(t)}
-                  className={`flex items-center gap-1.5 px-3 py-2 border text-xs rounded-xl transition-all duration-200 shadow-2xs font-medium cursor-pointer transform active:scale-95 ${
-                    added
-                      ? "bg-indigo-600 text-white border-indigo-600 hover:bg-indigo-700 shadow-xs"
-                      : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:border-slate-300"
-                  }`}
-                >
-                  {added ? (
-                    <Check size={12} className="text-white shrink-0" />
-                  ) : (
-                    <Plus size={12} className="text-slate-400 shrink-0" />
-                  )}
-                  {t.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Advanced / custom fields buttons */}
-        <div>
-          <p className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 mb-2">ADVANCED & CUSTOM FIELDS</p>
-          <div className="flex flex-wrap gap-2">
-            {ADVANCED_TEMPLATES.map((t, idx) => {
-              const added = isTemplateAdded(t);
-              return (
-                <button
-                  key={idx}
-                  type="button"
-                  onClick={() => toggleField(t)}
-                  className={`flex items-center gap-1.5 px-3 py-2 border text-xs rounded-xl transition-all duration-200 shadow-2xs font-medium cursor-pointer transform active:scale-95 ${
-                    added
-                      ? "bg-indigo-600 text-white border-indigo-600 hover:bg-indigo-700 shadow-xs"
-                      : "bg-indigo-50 dark:bg-indigo-950/20 border-indigo-100 dark:border-indigo-900/40 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-950/40"
-                  }`}
-                >
-                  {added ? (
-                    <Check size={12} className="text-white shrink-0" />
-                  ) : (
-                    <Plus size={12} className="text-indigo-400 shrink-0" />
-                  )}
-                  {t.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-
-      {/* Fields List */}
+      {/* Fields List (Rendered first so templates are below after you fill the form) */}
       <div>
         <h4 className="text-xs font-semibold text-slate-600 dark:text-slate-300 font-mono uppercase tracking-wider mb-3">
-          2. Field Configuration & Reordering ({fields.length} field{fields.length !== 1 && "s"})
+          Form Fields & Configuration ({fields.length} field{fields.length !== 1 && "s"})
         </h4>
-
 
         {fields.length === 0 ? (
           <div className="text-center py-8 border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl text-slate-400 dark:text-slate-500 text-xs">
-            No fields added yet. Add some fields from the templates above to customize your attendance form.
+            No fields added yet. Choose from the template buttons below to add custom fields to your attendance form.
           </div>
         ) : (
           <div className="space-y-3">
@@ -312,6 +237,80 @@ export const FieldBuilder: React.FC<FieldBuilderProps> = ({ fields, onChange }) 
             ))}
           </div>
         )}
+      </div>
+
+      {/* Templates Selector (Rendered at the bottom so it appears after form you publish) */}
+      <div className="bg-slate-50 dark:bg-slate-950 p-5 border border-slate-200 dark:border-slate-800 rounded-2xl relative">
+        
+        {/* Animated Feedback overlay badge inside template selector */}
+        {feedback && (
+          <div className="absolute top-4 right-4 bg-indigo-600 text-white text-[11px] font-bold px-3 py-1.5 rounded-xl shadow-lg flex items-center gap-1.5 animate-pulse z-10 border border-indigo-500">
+            <CheckCircle2 size={12} className="text-white" />
+            <span>{feedback}</span>
+          </div>
+        )}
+
+        <h4 className="text-xs font-semibold text-slate-600 dark:text-slate-300 font-mono uppercase tracking-wider mb-3">
+          Add Form Fields from Templates
+        </h4>
+
+        {/* Built-in template buttons */}
+        <div className="mb-4">
+          <p className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 mb-2">BUILT-IN TEMPLATES</p>
+          <div className="flex flex-wrap gap-2">
+            {BUILT_IN_TEMPLATES.map((t, idx) => {
+              const added = isTemplateAdded(t);
+              return (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => toggleField(t)}
+                  className={`flex items-center gap-1.5 px-3 py-2 border text-xs rounded-xl transition-all duration-200 shadow-2xs font-medium cursor-pointer transform active:scale-95 ${
+                    added
+                      ? "bg-indigo-600 text-white border-indigo-600 hover:bg-indigo-700 shadow-xs"
+                      : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:border-slate-300"
+                  }`}
+                >
+                  {added ? (
+                    <Check size={12} className="text-white shrink-0" />
+                  ) : (
+                    <Plus size={12} className="text-slate-400 shrink-0" />
+                  )}
+                  {t.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Advanced / custom fields buttons */}
+        <div>
+          <p className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 mb-2">ADVANCED & CUSTOM FIELDS</p>
+          <div className="flex flex-wrap gap-2">
+            {ADVANCED_TEMPLATES.map((t, idx) => {
+              const added = isTemplateAdded(t);
+              return (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => toggleField(t)}
+                  className={`flex items-center gap-1.5 px-3 py-2 border text-xs rounded-xl transition-all duration-200 shadow-2xs font-medium cursor-pointer transform active:scale-95 ${
+                    added
+                      ? "bg-indigo-600 text-white border-indigo-600 hover:bg-indigo-700 shadow-xs"
+                      : "bg-indigo-50 dark:bg-indigo-950/20 border-indigo-100 dark:border-indigo-900/40 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-950/40"
+                  }`}
+                >
+                  {added ? (
+                    <Check size={12} className="text-white shrink-0" />
+                  ) : (
+                    <Plus size={12} className="text-indigo-400 shrink-0" />
+                  )}
+                  {t.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
     </div>
   );

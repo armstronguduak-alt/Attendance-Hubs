@@ -1,5 +1,5 @@
 import React from "react";
-import { Sun, Moon, LogOut, LogIn, Users, ShieldAlert, FileSpreadsheet } from "lucide-react";
+import { Sun, Moon, LogOut, LogIn, Users, ShieldAlert, FileSpreadsheet, Plus } from "lucide-react";
 import { useAuth } from "../context/AuthContext.tsx";
 
 interface HeaderProps {
@@ -42,6 +42,18 @@ export const Header: React.FC<HeaderProps> = ({ currentView, navigate, darkMode,
               }`}
             >
               Home
+            </button>
+
+            <button
+              onClick={() => navigate("/create")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1 ${
+                currentView === "/create"
+                  ? "bg-indigo-600 text-white shadow-xs"
+                  : "text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:text-indigo-300 dark:hover:bg-indigo-950/20"
+              }`}
+            >
+              <Plus size={13} />
+              Create List
             </button>
 
             {user && (
@@ -124,6 +136,14 @@ export const Header: React.FC<HeaderProps> = ({ currentView, navigate, darkMode,
           }`}
         >
           Home
+        </button>
+        <button
+          onClick={() => navigate("/create")}
+          className={`flex-1 text-center py-1 rounded-lg text-[11px] font-bold transition cursor-pointer ${
+            currentView === "/create" ? "bg-indigo-600 text-white" : "text-indigo-600 dark:text-indigo-400"
+          }`}
+        >
+          Create List
         </button>
         {user && (
           <button

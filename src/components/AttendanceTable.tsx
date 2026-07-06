@@ -178,6 +178,74 @@ export const AttendanceTable: React.FC<AttendanceTableProps> = ({ fields, submis
     document.body.removeChild(link);
   };
 
+  // Helper to draw signature as vector lines in PDF (satisfying "drawing, not an image" constraint)
+  const drawVectorSignature = (doc: any, signatureDataStr: string, x: number, y: number, width: number, height: number): boolean => {
+    if (!signatureDataStr) return false;
+    try {
+      // Clean leading/trailing spaces or quotes if any
+      const cleanedStr = signatureDataStr.trim();
+      if (!cleanedStr.startsWith("{")) return false;
+
+      const data = JSON.parse(cleanedStr);
+      if (!data.strokes || !Array.isArray(data.strokes)) return false;
+
+      // Find bounding box of the strokes to crop/center tightly
+      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+      data.strokes.forEach((stroke: any[]) => {
+        if (!Array.isArray(stroke)) return;
+        stroke.forEach((p: { x: number; y: number }) => {
+          if (p.x < minX) minX = p.x;
+          if (p.x > maxX) maxX = p.x;
+          if (p.y < minY) minY = p.y;
+          if (p.y > maxY) maxY = p.y;
+        });
+      });
+
+      if (minX === Infinity || minY === Infinity) return false;
+
+      const strokeW = maxX - minX;
+      const strokeH = maxY - minY;
+      if (strokeW === 0 || strokeH === 0) return false;
+
+      // Scale to fit inside the given cell box while preserving aspect ratio
+      const padding = 1.5;
+      const targetW = width - padding * 2;
+      const targetH = height - padding * 2;
+      const scale = Math.min(targetW / strokeW, targetH / strokeH);
+      const offsetX = x + padding + (targetW - strokeW * scale) / 2;
+      const offsetY = y + padding + (targetH - strokeH * scale) / 2;
+
+      const originalColor = doc.getDrawColor();
+      const originalWidth = doc.getLineWidth();
+
+      doc.setDrawColor(30, 27, 75); // Dark navy line color for aesthetics
+      doc.setLineWidth(0.4); // Clean thin vector stroke
+
+      data.strokes.forEach((stroke: any[]) => {
+        if (!Array.isArray(stroke) || stroke.length < 2) return;
+        for (let i = 0; i < stroke.length - 1; i++) {
+          const p1 = stroke[i];
+          const p2 = stroke[i + 1];
+
+          const px1 = offsetX + (p1.x - minX) * scale;
+          const py1 = offsetY + (p1.y - minY) * scale;
+          const px2 = offsetX + (p2.x - minX) * scale;
+          const py2 = offsetY + (p2.y - minY) * scale;
+
+          doc.line(px1, py1, px2, py2);
+        }
+      });
+
+      // Restore drawing properties
+      doc.setDrawColor(originalColor);
+      doc.setLineWidth(originalWidth);
+      return true;
+    } catch (err) {
+      console.warn("Failed to parse vector signature data:", err);
+      return false;
+    }
+  };
+
   // PDF Exporter
   const exportPDF = () => {
     const doc = new jsPDF();
@@ -201,17 +269,20 @@ export const AttendanceTable: React.FC<AttendanceTableProps> = ({ fields, submis
     doc.setFontSize(10);
     doc.setTextColor(50);
 
-    // Dynamic headers spacing
+    // Dynamic columns configuration to draw ALL user details
+    const snWidth = 10;
+    const timeWidth = 32;
+    const usableWidth = 182;
+    const fieldsWidth = usableWidth - snWidth - timeWidth;
+    const colWidth = fieldsWidth / fields.length;
+
+    // Headers
     doc.text("S/N", 14, yPosition);
-    
-    // Choose first 3 major fields to draw in standard columns for spacing
-    const majorFields = fields.slice(0, 3);
-    let xOffset = 25;
-    majorFields.forEach(f => {
-      doc.text(f.label.slice(0, 15), xOffset, yPosition);
-      xOffset += 45;
+    fields.forEach((f, idx) => {
+      const colX = 14 + snWidth + idx * colWidth;
+      doc.text(f.label.slice(0, 18), colX, yPosition);
     });
-    doc.text("Submitted At", 160, yPosition);
+    doc.text("Submitted At", 14 + snWidth + fieldsWidth, yPosition);
 
     yPosition += 4;
     doc.line(14, yPosition, 196, yPosition);
@@ -220,25 +291,71 @@ export const AttendanceTable: React.FC<AttendanceTableProps> = ({ fields, submis
     doc.setFontSize(9);
     doc.setTextColor(80);
 
+    // Make row height generous if there is a digital signature field
+    const hasSignatureField = fields.some(f => f.type === "signature");
+    const rowHeight = hasSignatureField ? 14 : 8;
+
     processedSubmissions.forEach((sub, idx) => {
-      if (yPosition > 270) {
+      if (yPosition + rowHeight > 275) {
         doc.addPage();
         yPosition = 20;
         doc.line(14, yPosition, 196, yPosition);
         yPosition += 8;
+
+        // Re-draw table headers on the new page
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(9);
+        doc.setTextColor(50);
+        doc.text("S/N", 14, yPosition);
+        fields.forEach((f, fIdx) => {
+          doc.text(f.label.slice(0, 18), 14 + snWidth + fIdx * colWidth, yPosition);
+        });
+        doc.text("Submitted At", 14 + snWidth + fieldsWidth, yPosition);
+
+        yPosition += 4;
+        doc.line(14, yPosition, 196, yPosition);
+        
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9);
+        doc.setTextColor(80);
       }
-      yPosition += 7;
 
-      doc.text(`${idx + 1}`, 14, yPosition);
+      // Record baseline Y index inside cell
+      const verticalAlignOffset = yPosition + (rowHeight / 2) + 1;
 
-      let innerXOffset = 25;
-      majorFields.forEach(f => {
+      // S/N
+      doc.text(`${idx + 1}`, 14, verticalAlignOffset);
+
+      // Data Columns
+      fields.forEach((f, fIdx) => {
         const val = sub.values[f.id!] || "-";
-        doc.text(val.startsWith("data:image") ? "[Signature/Photo]" : val.slice(0, 20), innerXOffset, yPosition);
-        innerXOffset += 45;
+        const cellX = 14 + snWidth + fIdx * colWidth;
+
+        if (f.type === "signature") {
+          const drawn = drawVectorSignature(doc, val, cellX, yPosition, colWidth, rowHeight);
+          if (!drawn) {
+            // Raw fallback for legacy image signatures or missing values
+            const isImage = val.startsWith("data:image") || val.startsWith("{\"image\":\"data:image");
+            doc.text(isImage ? "[Signed]" : "-", cellX, verticalAlignOffset);
+          }
+        } else if (f.type === "photo") {
+          doc.text(val ? "[Photo Verified]" : "-", cellX, verticalAlignOffset);
+        } else if (f.type === "checkbox") {
+          doc.text(val === "true" ? "Yes" : "No", cellX, verticalAlignOffset);
+        } else {
+          doc.text(val.slice(0, 20), cellX, verticalAlignOffset);
+        }
       });
 
-      doc.text(new Date(sub.submittedAt).toLocaleDateString(), 160, yPosition);
+      // Date Time Column
+      const formattedDate = new Date(sub.submittedAt).toLocaleDateString() + " " + new Date(sub.submittedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      doc.text(formattedDate, 14 + snWidth + fieldsWidth, verticalAlignOffset);
+
+      yPosition += rowHeight;
+
+      // Draw light horizontal divider
+      doc.setDrawColor(240);
+      doc.line(14, yPosition, 196, yPosition);
     });
 
     doc.save(`attendance_report_${title.toLowerCase().replace(/\s+/g, "_")}.pdf`);
